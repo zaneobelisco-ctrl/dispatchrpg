@@ -1,7 +1,7 @@
-// module/actor-sheet.js - Dispatch RPG: actor sheet logic (autosave on close, explicit Save button, fixed duplicate)
+// module/actor-sheet.js - Dispatch RPG: actor sheet logic (fixed foundry.utils usage + explicit save button)
 export class DispatchActorSheet extends ActorSheet {
   static get defaultOptions() {
-    return mergeObject(super.defaultOptions, {
+    return foundry.utils.mergeObject(super.defaultOptions, {
       classes: ["dispatch", "sheet", "actor"],
       template: "systems/dispatchrpg/templates/actor-sheet.html",
       width: 920,
@@ -268,19 +268,19 @@ export class DispatchActorSheet extends ActorSheet {
 
     // Ler FormData
     const fd = new FormData(formEl);
-    const entries = Array.from(fd.entries()); // [ [name, value], ... ]
+    const entries = Array.from(fd.entries());
 
-    // Montar flat object, IGNORANDO entradas vazias (""), mas mantendo "0"
+    // Montar flat object, IGNORANDO entradas vazias (""), mantendo "0"
     const flat = {};
     for (const [k, v] of entries) {
       if (typeof v === "string" && v.trim() === "") continue;
       flat[k] = v;
     }
 
-    // expandObject helper
-    const expandFn = (typeof expandObject === "function") ? expandObject : (foundry?.utils?.expandObject);
+    // Use foundry.utils.expandObject
+    const expandFn = foundry?.utils?.expandObject;
     if (!expandFn) {
-      console.error("DispatchRPG | expandObject não disponível no ambiente Foundry.");
+      console.error("DispatchRPG | foundry.utils.expandObject não disponível.");
       return;
     }
     const expanded = expandFn(flat);
