@@ -1,1 +1,155 @@
-[HTML content placeholder; omitted for brevity in this snippet]
+<form class="dispatch-sheet duke-collins">
+  <header class="sheet-header">
+    <div class="left">
+      <div class="portrait">
+        <img src="{{actor.img || 'icons/svg/mystery-man.svg'}}" alt="avatar" id="pc-portrait"/>
+        <div class="portrait-controls">
+          <button type="button" class="btn" id="btn-upload-photo">Upload Foto</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="center">
+      <input class="char-name" name="name" type="text" value="{{actor.name}}" placeholder="Nome do Personagem" />
+      <div class="meta-row">
+        <input class="meta small" name="data.raca" placeholder="Raça" value="{{data.raca}}" />
+        <input class="meta small" name="data.classeSocial" placeholder="Classe Social" value="{{data.classeSocial}}" />
+        <input class="meta tiny" name="data.idade" placeholder="Idade" value="{{data.idade}}" />
+        <input class="meta tiny" name="data.altura" placeholder="Altura" value="{{data.altura}}" />
+        <input class="meta tiny" name="data.peso" placeholder="Peso" value="{{data.peso}}" />
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="status-block">
+        <label>PV</label>
+        <input name="data.pv" value="{{data.pv || 0}}" />
+      </div>
+      <div class="status-block">
+        <label>PP</label>
+        <input name="data.pp" value="{{data.pp || 0}}" />
+      </div>
+      <div class="status-block">
+        <label>SAN</label>
+        <input name="data.san" value="{{data.san || 0}}" />
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button type="button" class="tab active" data-tab="atributos">Atributos</button>
+    <button type="button" class="tab" data-tab="pericias">Perícias</button>
+    <button type="button" class="tab" data-tab="status">Status</button>
+    <button type="button" class="tab" data-tab="poderes">Poderes</button>
+    <button type="button" class="tab" data-tab="biografia">Biografia</button>
+  </nav>
+
+  <section class="tabcontent" data-tabcontent="atributos">
+    <div class="attributes-grid">
+      <div class="attr">
+        <label>Força</label>
+        <input type="number" name="data.atributos.FOR" value="{{data.atributos.FOR || 0}}" />
+      </div>
+      <div class="attr">
+        <label>Vigor</label>
+        <input type="number" name="data.atributos.VIG" value="{{data.atributos.VIG || 0}}" />
+      </div>
+      <div class="attr">
+        <label>Destreza</label>
+        <input type="number" name="data.atributos.DES" value="{{data.atributos.DES || 0}}" />
+      </div>
+      <div class="attr">
+        <label>Intelecto</label>
+        <input type="number" name="data.atributos.INT" value="{{data.atributos.INT || 0}}" />
+      </div>
+      <div class="attr">
+        <label>Poder</label>
+        <input type="number" name="data.atributos.POD" value="{{data.atributos.POD || 0}}" />
+      </div>
+      <div class="attr">
+        <label>Carisma</label>
+        <input type="number" name="data.atributos.CAR" value="{{data.atributos.CAR || 0}}" />
+      </div>
+    </div>
+  </section>
+
+  <section class="tabcontent" data-tabcontent="pericias" style="display:none">
+    <div class="pericias-grid">
+      <!-- Lista completa de perícias (adicione/remova conforme necessário) -->
+      {{#each (Object.entries({
+        "Atletismo":"FOR","Condução":"DES","Desarmado":"FOR","Dissimulação":"CAR","Evasão":"DES",
+        "Vontade":"POD","Furtividade":"DES","Influência":"CAR","Intuição":"INT","Língua Nativa":"INT",
+        "Malandragem":"POD","Musculatura":"FOR","Ocultação":"INT","Pesquisa":"INT","Percepção":"INT"
+      })) as |pair|}}
+      <div class="skill-row">
+        <label>{{pair.[0]}}</label>
+        <input type="number" name="data.pericias.{{pair.[0]}}" value="{{data.pericias.[pair.[0]] || 0}}" />
+        <button type="button" class="roll btn-small" data-skill="{{pair.[0]}}">🎲</button>
+      </div>
+      {{/each}}
+    </div>
+  </section>
+
+  <section class="tabcontent" data-tabcontent="status" style="display:none">
+    <div class="status-grid">
+      <div class="status-item"><label>Iniciativa</label><input name="data.iniciativa" value="{{data.iniciativa || 0}}" /></div>
+      <div class="status-item"><label>Movimento (m/turno)</label><input name="data.movimento" value="{{data.movimento || 0}}" /></div>
+      <div class="status-item"><label>Taxa de Cura</label><input name="data.taxaCura" value="{{data.taxaCura || 0}}" /></div>
+    </div>
+  </section>
+
+  <section class="tabcontent" data-tabcontent="poderes" style="display:none">
+    <div class="powers-list">
+      <label>Poderes e Técnicas</label>
+      <textarea name="data.poderes" placeholder="Descreva aqui suas técnicas, custos em PP e efeitos...">{{data.poderes}}</textarea>
+    </div>
+  </section>
+
+  <section class="tabcontent" data-tabcontent="biografia" style="display:none">
+    <label>Biografia</label>
+    <textarea name="data.biografia" placeholder="História, notas e background...">{{data.biografia}}</textarea>
+  </section>
+
+  <footer class="sheet-footer">
+    <div class="footer-left">Dispatch RPG — Duke Collins sheet style</div>
+  </footer>
+</form>
+
+<script>
+/* UI handlers (design only, leve interatividade):
+   Tab switching and Asset Browser upload for portrait */
+document.addEventListener('click', (ev) => {
+  const t = ev.target;
+  // tabs
+  if (t.classList && t.classList.contains('tab')) {
+    const app = t.closest('.app') || document;
+    app.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    const name = t.dataset.tab;
+    app.querySelectorAll('.tabcontent').forEach(x=>x.style.display='none');
+    app.querySelector(`[data-tabcontent="${name}"]`).style.display='block';
+  }
+
+  // upload portrait using Foundry FilePicker (opens Asset Browser)
+  if (t.id === 'btn-upload-photo') {
+    const fp = new FilePicker({
+      type: "image",
+      current: game.settings.get("core", "lastFolder") || "icons",
+      callback: (file) => {
+        // update actor img path
+        const app = t.closest(".app");
+        const actorId = app?.dataset?.actorId || app?.getAttribute('data-actor-id');
+        if (actorId) {
+          const actor = game.actors.get(actorId);
+          actor.update({img: file});
+        } else {
+          ui.notifications.warn("Salve a ficha primeiro para definir a foto.");
+        }
+      }
+    });
+    fp.render(true);
+  }
+
+  // roll buttons are visual-only here (the real roll handler is in scripts/main.js)
+});
+</script>
