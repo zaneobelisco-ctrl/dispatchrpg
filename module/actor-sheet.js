@@ -1,4 +1,4 @@
-// module/actor-sheet.js - Dispatch RPG: actor sheet logic (fix: robust event delegation + rolls)
+// module/actor-sheet.js - Dispatch RPG: actor sheet logic (robust actor lookup + rolls)
 export class DispatchActorSheet extends ActorSheet {
   static get defaultOptions() {
     return mergeObject(super.defaultOptions, {
@@ -15,7 +15,7 @@ export class DispatchActorSheet extends ActorSheet {
     // Atributos padrão
     data.data.atributos = data.data.atributos || { FOR: 0, VIG: 0, DES: 0, INT: 0, POD: 0, CAR: 0 };
 
-    // Perícias padrão (inclui Primeiros Socorros)
+    // Perícias padrão
     const defaultPericias = {
       "Atletismo": 0,
       "Condução": 0,
@@ -54,20 +54,17 @@ export class DispatchActorSheet extends ActorSheet {
   activateListeners(html) {
     super.activateListeners(html);
 
-    // Delegated listeners bound to this.element (robusto contra re-renders)
     const root = this.element;
 
     // Upload photo
     root.on("click", ".btn-upload-photo", (ev) => this._onUploadPhoto(ev));
 
-    // Rolls (perícias)
+    // Rolls (delegated)
     root.on("click", ".roll", (ev) => this._onRollPericia(ev));
-
-    // Rolls Iniciativa / Taxa de Cura
     root.on("click", ".roll-iniciativa", (ev) => this._onRollIniciativa(ev));
     root.on("click", ".roll-taxa", (ev) => this._onRollTaxaCura(ev));
 
-    // Increment/Decrement: double click on inputs
+    // Double click to increment/decrement pericia
     root.on("dblclick", ".skill-input", async (ev) => {
       const input = ev.currentTarget;
       const name = input.name;
@@ -78,44 +75,79 @@ export class DispatchActorSheet extends ActorSheet {
       const delta = ev.shiftKey ? -1 : 1;
       const newVal = Math.max(0, current + delta);
 
-      const newPericias = duplicate(this.actor.system?.pericias || this.actor.data.data.pericias || {});
+      const newPericias = duplicate(this.actor?.system?.pericias || this.actor?.data?.data?.pericias || this.actor?.data?.pericias || {});
       newPericias[skillName] = newVal;
+      // Use nested update to avoid clobbering other data
       await this.actor.update({ "data": { "pericias": newPericias } });
       $(input).val(newVal);
       ui.notifications.info(`${skillName}: ${newVal}`);
     });
 
-    // Ensure text inputs save on blur (foundry's form submit handles main save, but this helps instant save)
-    root.on("blur", "input, textarea", async (ev) => {
-      // trigger default form submit to save actor
+    // Save on blur to persist quick edits
+    root.on("blur", "input, textarea", (ev) => {
       const form = this.element.find("form");
-      if (form.length) {
-        // Use the ActorSheet's _onSubmit to save (calls this._onSubmit maybe private),
-        // Fallback: call form.submit()
-        form.submit();
-      }
+      if (form.length) form.submit();
     });
   }
 
-  // FilePicker for portrait
+  // helper: robust actor lookup and return actor object
+  _getActorFromContext() {
+    // Prefer this.actor if available
+    if (this.actor) return this.actor;
+
+    // Try to get actor id from sheet DOM element
+    try {
+      const el = this.element?.closest?.call ? this.element.closest(".app") : this.element.closest(".app");
+      const actorId = el?.dataset?.actorId || this.element?.attr?.call ? this.element.attr("data-actor-id") : this.element.attr("data-actor-id");
+      if (actorId) {
+        const actor = game.actors.get(actorId) || canvas.tokens?.get(actorId)?.actor;
+        if (actor) return actor;
+      }
+    } catch (err) {
+      // ignore
+    }
+
+    // Fallback: try to find a rendered sheet actor
+    const found = game.actors?.contents?.find?.(a => a.sheet && a.sheet._state && a.sheet._state.rendered);
+    if (found) return found;
+    return null;
+  }
+
+  // Get actor data object in a way compatible with different Foundry versions
+  _getActorData(actor) {
+    if (!actor) return null;
+    return actor.system || actor.data?.data || actor.data || null;
+  }
+
   _onUploadPhoto(event) {
     event.preventDefault();
     const fp = new FilePicker({
       type: "image",
       callback: (path) => {
-        this.actor.update({ img: path });
+        const actor = this._getActorFromContext();
+        if (!actor) return ui.notifications.warn("Salve a ficha primeiro para definir a foto.");
+        actor.update({ img: path });
       }
     });
     fp.render(true);
   }
 
-  // Perícia roll: 1d20 + atributo + pericia
+  // Perícia roll with robust actor lookup
   async _onRollPericia(event) {
     event.preventDefault();
     const button = event.currentTarget;
     const skill = button.dataset.skill;
-    if (!skill) return ui.notifications.warn("Perícia não definida.");
+    if (!skill) return ui.notifications.warn("Perícia não definida no botão.");
 
+    const actor = this._getActorFromContext();
+    if (!actor) {
+      return ui.notifications.warn("Não foi possível identificar o personagem. Salve a ficha e tente novamente.");
+    }
+
+    const actorData = this._getActorData(actor);
+    if (!actorData) return ui.notifications.error("Dados do personagem não encontrados.");
+
+    // Map perícia -> atributo
     const map = {
       "Atletismo": "FOR",
       "Condução": "DES",
@@ -135,7 +167,6 @@ export class DispatchActorSheet extends ActorSheet {
       "Primeiros Socorros": "INT"
     };
 
-    const actorData = this.actor.data.data;
     const periciaVal = Number(actorData.pericias?.[skill]) || 0;
     const attrKey = map[skill] || "FOR";
     const attrVal = Number(actorData.atributos?.[attrKey]) || 0;
@@ -143,38 +174,40 @@ export class DispatchActorSheet extends ActorSheet {
     const formula = `1d20 + ${attrVal} + ${periciaVal}`;
     try {
       const roll = await new Roll(formula).roll({ async: true });
-      const flavor = `${this.actor.name} — ${skill} (1d20 + ${attrVal} + ${periciaVal})`;
-      roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor });
+      const flavor = `${actor.name} — ${skill} (1d20 + ${attrVal} + ${periciaVal})`;
+      roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor }), flavor });
     } catch (err) {
-      console.error("Roll error:", err);
-      ui.notifications.error("Erro ao rolar a perícia.");
+      console.error("Erro na rolagem:", err);
+      ui.notifications.error("Erro ao executar a rolagem.");
     }
   }
 
-  // Iniciativa roll: 1d20 + DES
   async _onRollIniciativa(event) {
     event.preventDefault();
-    const actorData = this.actor.data.data;
+    const actor = this._getActorFromContext();
+    if (!actor) return ui.notifications.warn("Salve a ficha antes de rolar iniciativa.");
+    const actorData = this._getActorData(actor);
     const des = Number(actorData.atributos?.DES) || 0;
     const formula = `1d20 + ${des}`;
     try {
       const roll = await new Roll(formula).roll({ async: true });
-      roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor: `${this.actor.name} — Iniciativa` });
+      roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor }), flavor: `${actor.name} — Iniciativa` });
     } catch (err) {
       console.error(err);
       ui.notifications.error("Erro ao rolar iniciativa.");
     }
   }
 
-  // Taxa de cura: 1d6 + VIG
   async _onRollTaxaCura(event) {
     event.preventDefault();
-    const actorData = this.actor.data.data;
+    const actor = this._getActorFromContext();
+    if (!actor) return ui.notifications.warn("Salve a ficha antes de rolar a taxa de cura.");
+    const actorData = this._getActorData(actor);
     const vig = Number(actorData.atributos?.VIG) || 0;
     const formula = `1d6 + ${vig}`;
     try {
       const roll = await new Roll(formula).roll({ async: true });
-      roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor: `${this.actor.name} — Taxa de Cura (1d6 + VIG)` });
+      roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor }), flavor: `${actor.name} — Taxa de Cura (1d6 + VIG)` });
     } catch (err) {
       console.error(err);
       ui.notifications.error("Erro ao rolar taxa de cura.");
