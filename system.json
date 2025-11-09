@@ -34,4 +34,11 @@
   "url": "https://github.com/zaneobelisco-ctrl/dispatchrpg",
   "manifest": "https://raw.githubusercontent.com/zaneobelisco-ctrl/dispatchrpg/main/system.json",
   "download": "https://github.com/zaneobelisco-ctrl/dispatchrpg/archive/refs/heads/main.zip"
+  "documentTypes": {
+  "Actor": {
+    "character": {},
+    "npc": {}
+  },
+  "Item": {}
 }
+
