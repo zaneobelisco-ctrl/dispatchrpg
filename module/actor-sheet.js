@@ -1,4 +1,4 @@
-// module/actor-sheet.js - Dispatch RPG: actor sheet logic (robust actor lookup + rolls)
+// module/actor-sheet.js - Dispatch RPG: actor sheet logic (robust value lookup + rolls)
 export class DispatchActorSheet extends ActorSheet {
   static get defaultOptions() {
     return mergeObject(super.defaultOptions, {
@@ -64,7 +64,7 @@ export class DispatchActorSheet extends ActorSheet {
     root.on("click", ".roll-iniciativa", (ev) => this._onRollIniciativa(ev));
     root.on("click", ".roll-taxa", (ev) => this._onRollTaxaCura(ev));
 
-    // Double click to increment/decrement pericia
+    // Double click increment/decrement for skill inputs
     root.on("dblclick", ".skill-input", async (ev) => {
       const input = ev.currentTarget;
       const name = input.name;
@@ -77,7 +77,6 @@ export class DispatchActorSheet extends ActorSheet {
 
       const newPericias = duplicate(this.actor?.system?.pericias || this.actor?.data?.data?.pericias || this.actor?.data?.pericias || {});
       newPericias[skillName] = newVal;
-      // Use nested update to avoid clobbering other data
       await this.actor.update({ "data": { "pericias": newPericias } });
       $(input).val(newVal);
       ui.notifications.info(`${skillName}: ${newVal}`);
@@ -90,33 +89,57 @@ export class DispatchActorSheet extends ActorSheet {
     });
   }
 
-  // helper: robust actor lookup and return actor object
+  // Helper: find actor object robustly
   _getActorFromContext() {
-    // Prefer this.actor if available
     if (this.actor) return this.actor;
-
-    // Try to get actor id from sheet DOM element
+    // try dataset
     try {
-      const el = this.element?.closest?.call ? this.element.closest(".app") : this.element.closest(".app");
-      const actorId = el?.dataset?.actorId || this.element?.attr?.call ? this.element.attr("data-actor-id") : this.element.attr("data-actor-id");
+      const el = this.element.closest(".app");
+      const actorId = el?.dataset?.actorId || this.element.attr("data-actor-id");
       if (actorId) {
         const actor = game.actors.get(actorId) || canvas.tokens?.get(actorId)?.actor;
         if (actor) return actor;
       }
-    } catch (err) {
-      // ignore
-    }
-
-    // Fallback: try to find a rendered sheet actor
-    const found = game.actors?.contents?.find?.(a => a.sheet && a.sheet._state && a.sheet._state.rendered);
-    if (found) return found;
+    } catch (err) { /* ignore */ }
     return null;
   }
 
-  // Get actor data object in a way compatible with different Foundry versions
-  _getActorData(actor) {
-    if (!actor) return null;
-    return actor.system || actor.data?.data || actor.data || null;
+  // Helper: get current value from sheet input if present, otherwise from actor data (multiple fallbacks)
+  _getFieldValueFromSheetOrActor(fieldName) {
+    // fieldName example: "data.pericias.Primeiros Socorros" or "data.atributos.DES"
+    // 1) Try to read the input from the rendered sheet (unsaved edits)
+    try {
+      const selector = `[name="${fieldName}"]`;
+      const el = this.element.find(selector);
+      if (el && el.length) {
+        const v = el.val();
+        if (v !== undefined && v !== null && v !== "") return Number(v);
+      }
+    } catch (err) {
+      // ignore selector errors
+    }
+
+    // 2) fallback to actor data
+    const actor = this._getActorFromContext();
+    if (!actor) return 0;
+    const actorSys = actor.system || actor.data?.data || actor.data || {};
+    // parse fieldName
+    const parts = fieldName.split(".");
+    // remove leading "data" if present
+    const startIdx = parts[0] === "data" ? 1 : 0;
+    let cur = actorSys;
+    for (let i = startIdx; i < parts.length; i++) {
+      const key = parts[i];
+      if (cur == null) return 0;
+      // handle keys with spaces (perícia names)
+      if (cur[key] === undefined) {
+        // try to find with exact key in cur (object may have different shape)
+        const foundKey = Object.keys(cur).find(k => k === key);
+        if (foundKey) cur = cur[foundKey];
+        else return 0;
+      } else cur = cur[key];
+    }
+    return Number(cur) || 0;
   }
 
   _onUploadPhoto(event) {
@@ -132,20 +155,12 @@ export class DispatchActorSheet extends ActorSheet {
     fp.render(true);
   }
 
-  // Perícia roll with robust actor lookup
+  // Perícia roll with proper reading of current values
   async _onRollPericia(event) {
     event.preventDefault();
     const button = event.currentTarget;
     const skill = button.dataset.skill;
     if (!skill) return ui.notifications.warn("Perícia não definida no botão.");
-
-    const actor = this._getActorFromContext();
-    if (!actor) {
-      return ui.notifications.warn("Não foi possível identificar o personagem. Salve a ficha e tente novamente.");
-    }
-
-    const actorData = this._getActorData(actor);
-    if (!actorData) return ui.notifications.error("Dados do personagem não encontrados.");
 
     // Map perícia -> atributo
     const map = {
@@ -167,15 +182,22 @@ export class DispatchActorSheet extends ActorSheet {
       "Primeiros Socorros": "INT"
     };
 
-    const periciaVal = Number(actorData.pericias?.[skill]) || 0;
+    // First, try to read the pericia value from the sheet (unsaved edits)
+    const periciaField = `data.pericias.${skill}`;
+    const periciaVal = this._getFieldValueFromSheetOrActor(periciaField);
+
+    // Then, read the attribute value either from sheet or actor
     const attrKey = map[skill] || "FOR";
-    const attrVal = Number(actorData.atributos?.[attrKey]) || 0;
+    const attrField = `data.atributos.${attrKey}`;
+    const attrVal = this._getFieldValueFromSheetOrActor(attrField);
 
     const formula = `1d20 + ${attrVal} + ${periciaVal}`;
     try {
       const roll = await new Roll(formula).roll({ async: true });
-      const flavor = `${actor.name} — ${skill} (1d20 + ${attrVal} + ${periciaVal})`;
-      roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor }), flavor });
+      const actor = this._getActorFromContext();
+      const speaker = actor ? ChatMessage.getSpeaker({ actor }) : {};
+      const flavor = `${actor?.name || "Personagem"} — ${skill} (1d20 + ${attrVal} + ${periciaVal})`;
+      roll.toMessage({ speaker, flavor });
     } catch (err) {
       console.error("Erro na rolagem:", err);
       ui.notifications.error("Erro ao executar a rolagem.");
@@ -184,14 +206,13 @@ export class DispatchActorSheet extends ActorSheet {
 
   async _onRollIniciativa(event) {
     event.preventDefault();
-    const actor = this._getActorFromContext();
-    if (!actor) return ui.notifications.warn("Salve a ficha antes de rolar iniciativa.");
-    const actorData = this._getActorData(actor);
-    const des = Number(actorData.atributos?.DES) || 0;
+    // get DES from sheet or actor
+    const des = this._getFieldValueFromSheetOrActor("data.atributos.DES");
     const formula = `1d20 + ${des}`;
     try {
       const roll = await new Roll(formula).roll({ async: true });
-      roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor }), flavor: `${actor.name} — Iniciativa` });
+      const actor = this._getActorFromContext();
+      roll.toMessage({ speaker: actor ? ChatMessage.getSpeaker({ actor }) : {}, flavor: `${actor?.name || "Personagem"} — Iniciativa` });
     } catch (err) {
       console.error(err);
       ui.notifications.error("Erro ao rolar iniciativa.");
@@ -200,14 +221,12 @@ export class DispatchActorSheet extends ActorSheet {
 
   async _onRollTaxaCura(event) {
     event.preventDefault();
-    const actor = this._getActorFromContext();
-    if (!actor) return ui.notifications.warn("Salve a ficha antes de rolar a taxa de cura.");
-    const actorData = this._getActorData(actor);
-    const vig = Number(actorData.atributos?.VIG) || 0;
+    const vig = this._getFieldValueFromSheetOrActor("data.atributos.VIG");
     const formula = `1d6 + ${vig}`;
     try {
       const roll = await new Roll(formula).roll({ async: true });
-      roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor }), flavor: `${actor.name} — Taxa de Cura (1d6 + VIG)` });
+      const actor = this._getActorFromContext();
+      roll.toMessage({ speaker: actor ? ChatMessage.getSpeaker({ actor }) : {}, flavor: `${actor?.name || "Personagem"} — Taxa de Cura (1d6 + ${vig})` });
     } catch (err) {
       console.error(err);
       ui.notifications.error("Erro ao rolar taxa de cura.");
