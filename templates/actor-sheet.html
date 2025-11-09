@@ -4,7 +4,7 @@
       <div class="portrait">
         <img src="{{#if actor.img}}{{actor.img}}{{else}}icons/svg/mystery-man.svg{{/if}}" alt="avatar" id="pc-portrait"/>
         <div class="portrait-controls">
-          <button type="button" class="btn" id="btn-upload-photo">Upload Foto</button>
+          <button type="button" class="btn-upload-photo btn">Upload Foto</button>
         </div>
       </div>
     </div>
@@ -21,15 +21,15 @@
     </div>
 
     <div class="right">
-      <div class="status-block">
+      <div class="status-block pv">
         <label>PV</label>
         <input name="data.pv" value="{{data.pv}}" />
       </div>
-      <div class="status-block">
+      <div class="status-block pp">
         <label>PP</label>
         <input name="data.pp" value="{{data.pp}}" />
       </div>
-      <div class="status-block">
+      <div class="status-block san">
         <label>SAN</label>
         <input name="data.san" value="{{data.san}}" />
       </div>
@@ -47,7 +47,7 @@
   <section class="tabcontent" data-tabcontent="atributos">
     <div class="attributes-grid">
       {{#each data.atributos}}
-      <div class="attr">
+      <div class="attr" data-attr="{{@key}}">
         <label>{{@key}}</label>
         <input type="number" name="data.atributos.{{@key}}" value="{{this}}" />
       </div>
@@ -56,13 +56,15 @@
   </section>
 
   <section class="tabcontent" data-tabcontent="pericias" style="display:none">
-    <div class="pericias-grid">
+    <div class="pericias-grid two-columns">
       {{#if data.pericias}}
         {{#each data.pericias}}
-        <div class="skill-row">
-          <div class="skill-label">{{@key}}</div>
-          <input class="skill-input" type="number" name="data.pericias.{{@key}}" value="{{this}}" />
-          <button type="button" class="roll btn-small" data-skill="{{@key}}">🎲</button>
+        <div class="skill-card">
+          <div class="skill-row">
+            <div class="skill-label">{{@key}}</div>
+            <input class="skill-input" type="number" name="data.pericias.{{@key}}" value="{{this}}" />
+            <button type="button" class="roll btn-small" data-skill="{{@key}}">🎲</button>
+          </div>
         </div>
         {{/each}}
       {{else}}
@@ -74,9 +76,24 @@
 
   <section class="tabcontent" data-tabcontent="status" style="display:none">
     <div class="status-grid">
-      <div class="status-item"><label>Iniciativa</label><input name="data.iniciativa" value="{{data.iniciativa}}" /></div>
-      <div class="status-item"><label>Movimento (m/turno)</label><input name="data.movimento" value="{{data.movimento}}" /></div>
-      <div class="status-item"><label>Taxa de Cura</label><input name="data.taxaCura" value="{{data.taxaCura}}" /></div>
+      <div class="status-item">
+        <label>Iniciativa</label>
+        <div class="inline-row">
+          <input name="data.iniciativa" value="{{data.iniciativa}}" />
+          <button type="button" class="roll-iniciativa btn-small">🎲</button>
+        </div>
+      </div>
+      <div class="status-item">
+        <label>Movimento (m/turno)</label>
+        <input name="data.movimento" value="{{data.movimento}}" />
+      </div>
+      <div class="status-item">
+        <label>Taxa de Cura</label>
+        <div class="inline-row">
+          <input name="data.taxaCura" value="{{data.taxaCura}}" />
+          <button type="button" class="roll-taxa btn-small">🎲</button>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -110,21 +127,6 @@ document.addEventListener('click', (ev) => {
     if (target) target.style.display='block';
   }
 
-  if (t.id === 'btn-upload-photo') {
-    const fp = new FilePicker({
-      type: "image",
-      callback: (path) => {
-        const app = t.closest(".app");
-        const actorId = app?.dataset?.actorId || app?.getAttribute('data-actor-id');
-        if (actorId) {
-          const actor = game.actors.get(actorId);
-          actor.update({img: path});
-        } else {
-          ui.notifications.warn("Salve a ficha primeiro para definir a foto.");
-        }
-      }
-    });
-    fp.render(true);
-  }
+  // The rest of behavior (rolls, upload) is handled in module/actor-sheet.js via delegated listeners
 });
 </script>
