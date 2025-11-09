@@ -1,0 +1,4 @@
+{
+  "DISPATCH.Name": "Dispatch RPG",
+  "DISPATCH.Attributes": { "FOR": "Força", "VIG": "Vigor", "DES": "Destreza", "INT": "Intelecto", "POD": "Poder", "CAR": "Carisma" }
+}

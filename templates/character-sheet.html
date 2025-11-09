@@ -1,0 +1,74 @@
+<form class="dispatch-sheet">
+  <header class="header">
+    <div style="display:flex;gap:12px;align-items:center">
+      <img src="{{actor.img}}" alt="avatar" style="width:72px;height:72px;border-radius:6px;object-fit:cover"/>
+      <div>
+        <input type="text" name="name" value="{{actor.name}}" placeholder="Nome do personagem"/>
+        <div>Raça: <input type="text" name="data.raca" value="{{data.raca}}"/></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button type="button" class="tab active" data-tab="atributos">Atributos</button>
+    <button type="button" class="tab" data-tab="pericias">Perícias</button>
+    <button type="button" class="tab" data-tab="status">Status</button>
+    <button type="button" class="tab" data-tab="poderes">Poderes</button>
+  </div>
+
+  <div class="tabcontent" data-tabcontent="atributos">
+    <div class="grid">
+      {{#each data.atributos as |value key|}}
+      <div class="field">
+        <label>{{key}}</label>
+        <input type="number" name="data.atributos.{{key}}" value="{{value}}"/>
+      </div>
+      {{/each}}
+    </div>
+  </div>
+
+  <div class="tabcontent" data-tabcontent="pericias" style="display:none">
+    <div class="skills">
+      {{#each data.pericias as |val key|}}
+      <div class="skill">
+        <div>{{key}}</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="number" name="data.pericias.{{key}}" value="{{val}}"/>
+          <button type="button" class="roll-pericia" data-skill="{{key}}">🎲</button>
+        </div>
+      </div>
+      {{/each}}
+    </div>
+  </div>
+
+  <div class="tabcontent" data-tabcontent="status" style="display:none">
+    <div class="grid">
+      <div class="field"><label>PV</label><input name="data.pv" value="{{data.pv}}"/></div>
+      <div class="field"><label>PP</label><input name="data.pp" value="{{data.pp}}"/></div>
+      <div class="field"><label>SAN</label><input name="data.san" value="{{data.san}}"/></div>
+    </div>
+  </div>
+
+  <div class="tabcontent" data-tabcontent="poderes" style="display:none">
+    <div class="field">
+      <label>Poderes (texto)</label>
+      <textarea name="data.poderes">{{data.poderes}}</textarea>
+    </div>
+  </div>
+</form>
+
+<script>
+  // client-side handlers for tabs (runs in sheet context)
+  document.addEventListener("click", (ev) => {
+    const t = ev.target;
+    if (t.classList && t.classList.contains("tab")) {
+      const app = t.closest(".app");
+      if (!app) return;
+      app.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+      t.classList.add("active");
+      const name = t.dataset.tab;
+      app.querySelectorAll(".tabcontent").forEach(x=>x.style.display='none');
+      app.querySelector(`[data-tabcontent="${name}"]`).style.display='block';
+    }
+  });
+</script>

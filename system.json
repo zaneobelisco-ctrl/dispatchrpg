@@ -1,0 +1,20 @@
+{
+  "id": "dispatchrpg",
+  "title": "Dispatch RPG",
+  "description": "Dispatch RPG - Duke Collins visual system.",
+  "version": "1.1.0",
+  "compatibility": { "minimum": 13, "verified": 13 },
+  "authors": [{ "name": "Matheus Teles" }],
+  "esmodules": ["scripts/main.js"],
+  "styles": ["styles/style.css"],
+  "languages": [{ "lang": "pt-BR", "name": "Português (Brasil)", "path": "lang/pt-BR.json" }],
+  "documentTypes": { "Actor": { "character": {} }, "Item": {} },
+  "socket": false,
+  "initiative": "1d20 + @data.atributos.DES",
+  "grid": { "distance": 1, "units": "m" },
+  "primaryTokenAttribute": "data.pv",
+  "secondaryTokenAttribute": "data.pp",
+  "url": "https://github.com/zaneobelisco-ctrl/dispatchrpg",
+  "manifest": "https://raw.githubusercontent.com/zaneobelisco-ctrl/dispatchrpg/main/system.json",
+  "download": "https://github.com/zaneobelisco-ctrl/dispatchrpg/archive/refs/heads/main.zip"
+}
