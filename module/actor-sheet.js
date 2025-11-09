@@ -11,20 +11,21 @@ export class DispatchActorSheet extends ActorSheet {
     });
   }
 
-  /** 
-   * Antes de fechar, salva explicitamente os dados do formulário (evita perda ao fechar sem submit).
-   */
-  async close(options = {}) {
-    try {
-      await this.saveSheetData();
-      // pequeno delay para garantir que o update foi iniciado
-      await new Promise(r => setTimeout(r, 60));
-    } catch (err) {
-      console.warn("DispatchRPG | Erro ao salvar ficha antes de fechar:", err);
-      ui.notifications.error("Não foi possível salvar automaticamente a ficha. Verifique o console.");
-    }
-    return super.close(options);
+ /** 
+ * Antes de fechar, salva explicitamente os dados do formulário (evita perda ao fechar sem submit).
+ */
+async close(options = {}) {
+  try {
+    await this.saveSheetData();
+    // pequeno delay para garantir que o update foi iniciado
+    await new Promise(r => setTimeout(r, 70));
+  } catch (err) {
+    console.warn("DispatchRPG | Erro ao salvar ficha antes de fechar:", err);
+    ui.notifications.error("Não foi possível salvar automaticamente a ficha. Verifique o console.");
   }
+  return super.close(options);
+}
+
 
   getData() {
     const data = super.getData();
@@ -249,60 +250,70 @@ export class DispatchActorSheet extends ActorSheet {
     }
   }
 
-  /**
-   * Lê o formulário renderizado, expande nomes como "data.atributos.FOR" em objeto aninhado,
-   * converte strings numéricas em números e executa this.actor.update(...) com o payload.
-   * Garante salvar campos com espaços (ex.: "data.pericias.Primeiros Socorros").
-   */
-  async saveSheetData() {
-    // Ensure actor exist
-    const actor = this._getActorFromContext() || this.actor;
-    if (!actor) return ui.notifications.warn("Não foi possível salvar: personagem não encontrado.");
+ /**
+ * Lê o formulário renderizado, expande nomes como "data.atributos.FOR" em objeto aninhado,
+ * converte strings numéricas em números e executa this.actor.update(...) com o payload.
+ * Evita incluir entradas vazias (""), preservando os valores existentes no actor.
+ */
+async saveSheetData() {
+  const actor = this._getActorFromContext() || this.actor;
+  if (!actor) return ui.notifications.warn("Não foi possível salvar: personagem não encontrado.");
 
-    const formEl = this.element.find("form")[0];
-    if (!formEl) return;
+  const formEl = this.element.find("form")[0];
+  if (!formEl) return;
 
-    // Read FormData
-    const fd = new FormData(formEl);
-    const entries = Array.from(fd.entries()); // [ [name, value], ... ]
+  // Ler FormData
+  const fd = new FormData(formEl);
+  const entries = Array.from(fd.entries()); // [ [name, value], ... ]
 
-    // Build flat object
-    const flat = {};
-    for (const [k, v] of entries) {
-      flat[k] = v;
-    }
+  // Montar flat object, IGNORANDO entradas vazias (""), mas mantendo "0"
+  const flat = {};
+  for (const [k, v] of entries) {
+    // Se v for string vazia, pulamos (não sobrescrever). Mantemos "0".
+    if (typeof v === "string" && v.trim() === "") continue;
+    flat[k] = v;
+  }
 
-    // expandObject helper (Foundry provides expandObject or in foundry.utils)
-    const expandFn = (typeof expandObject === "function") ? expandObject : (foundry?.utils?.expandObject);
-    if (!expandFn) {
-      console.error("DispatchRPG | expandObject não disponível no ambiente Foundry.");
-      return;
-    }
-    const expanded = expandFn(flat); // { data: { atributos: { FOR: "3" }, pericias: { "Primeiros Socorros": "2" } } }
+  // expandObject helper (Foundry fornece expandObject ou foundry.utils.expandObject)
+  const expandFn = (typeof expandObject === "function") ? expandObject : (foundry?.utils?.expandObject);
+  if (!expandFn) {
+    console.error("DispatchRPG | expandObject não disponível no ambiente Foundry.");
+    return;
+  }
+  const expanded = expandFn(flat); // exemplo: { data: { atributos: { FOR: "3" }, pericias: { "Primeiros Socorros": "2" } }, name: "..." }
 
-    // Convert numeric strings to numbers recursively
-    function convertNumbers(obj) {
-      if (obj === null || obj === undefined) return obj;
-      if (typeof obj === "string") {
-        if (/^-?\d+$/.test(obj)) return parseInt(obj, 10);
-        if (/^-?\d+\.\d+$/.test(obj)) return parseFloat(obj);
-        return obj;
-      }
-      if (Array.isArray(obj)) return obj.map(convertNumbers);
-      if (typeof obj === "object") {
-        const out = {};
-        for (const k of Object.keys(obj)) out[k] = convertNumbers(obj[k]);
-        return out;
-      }
+  // Converter numerics em strings para numbers (recursivo)
+  function convertNumbers(obj) {
+    if (obj === null || obj === undefined) return obj;
+    if (typeof obj === "string") {
+      // se for inteiro (inclui "0")
+      if (/^-?\d+$/.test(obj)) return parseInt(obj, 10);
+      // se for decimal
+      if (/^-?\d+\.\d+$/.test(obj)) return parseFloat(obj);
       return obj;
     }
-    const converted = convertNumbers(expanded);
-
-    // Prepare payload for actor.update: pass { data: {...} }
-    const payload = converted.data ? { data: converted.data } : converted;
-
-    // Execute update
-    await actor.update(payload);
-    // Optionally: ui.notifications.info("Ficha salva.");
+    if (Array.isArray(obj)) return obj.map(convertNumbers);
+    if (typeof obj === "object") {
+      const out = {};
+      for (const key of Object.keys(obj)) out[key] = convertNumbers(obj[key]);
+      return out;
+    }
+    return obj;
   }
+  const converted = convertNumbers(expanded);
+
+  // Construir payload: incluir data (se existir) e quaisquer outros campos de topo (ex.: name)
+  const payload = {};
+  if (converted.data) payload.data = converted.data;
+  // incluir propriedades top-level além de data (por exemplo 'name'), sem sobrescrever data
+  for (const k of Object.keys(converted)) {
+    if (k === "data") continue;
+    payload[k] = converted[k];
+  }
+
+  // Se payload estiver vazio (ex.: tudo foi vazio), não chamar update
+  if (Object.keys(payload).length === 0) return;
+
+  // Executar update
+  await actor.update(payload);
 }
