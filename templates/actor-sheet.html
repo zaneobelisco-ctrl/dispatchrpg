@@ -2,7 +2,6 @@
   <header class="sheet-header">
     <div class="left">
       <div class="portrait">
-        <!-- Handlebars-safe image selection -->
         <img src="{{#if actor.img}}{{actor.img}}{{else}}icons/svg/mystery-man.svg{{/if}}" alt="avatar" id="pc-portrait"/>
         <div class="portrait-controls">
           <button type="button" class="btn" id="btn-upload-photo">Upload Foto</button>
@@ -13,11 +12,11 @@
     <div class="center">
       <input class="char-name" name="name" type="text" value="{{actor.name}}" placeholder="Nome do Personagem" />
       <div class="meta-row">
-        <input class="meta small" name="data.raca" placeholder="Raça" value="{{data.raca}}" />
-        <input class="meta small" name="data.classeSocial" placeholder="Classe Social" value="{{data.classeSocial}}" />
-        <input class="meta tiny" name="data.idade" placeholder="Idade" value="{{data.idade}}" />
-        <input class="meta tiny" name="data.altura" placeholder="Altura" value="{{data.altura}}" />
-        <input class="meta tiny" name="data.peso" placeholder="Peso" value="{{data.peso}}" />
+        <div class="meta-field"><label>Raça</label><input class="meta small" name="data.raca" placeholder="Raça" value="{{data.raca}}" /></div>
+        <div class="meta-field"><label>Classe Social</label><input class="meta small" name="data.classeSocial" placeholder="Classe Social" value="{{data.classeSocial}}" /></div>
+        <div class="meta-field"><label>Idade</label><input class="meta tiny" name="data.idade" placeholder="Idade" value="{{data.idade}}" /></div>
+        <div class="meta-field"><label>Altura</label><input class="meta tiny" name="data.altura" placeholder="Altura" value="{{data.altura}}" /></div>
+        <div class="meta-field"><label>Peso</label><input class="meta tiny" name="data.peso" placeholder="Peso" value="{{data.peso}}" /></div>
       </div>
     </div>
 
@@ -61,14 +60,15 @@
       {{#if data.pericias}}
         {{#each data.pericias}}
         <div class="skill-row">
-          <label>{{@key}}</label>
-          <input type="number" name="data.pericias.{{@key}}" value="{{this}}" />
+          <div class="skill-label">{{@key}}</div>
+          <input class="skill-input" type="number" name="data.pericias.{{@key}}" value="{{this}}" />
           <button type="button" class="roll btn-small" data-skill="{{@key}}">🎲</button>
         </div>
         {{/each}}
       {{else}}
         <div>Nenhuma perícia definida.</div>
       {{/if}}
+      <p class="hint">Duplo clique no número da perícia: +1. Shift + duplo clique: -1.</p>
     </div>
   </section>
 
@@ -98,7 +98,6 @@
 </form>
 
 <script>
-/* Tab switching (runs in sheet context) */
 document.addEventListener('click', (ev) => {
   const t = ev.target;
   if (t.classList && t.classList.contains('tab')) {
@@ -111,7 +110,6 @@ document.addEventListener('click', (ev) => {
     if (target) target.style.display='block';
   }
 
-  /* Upload portrait using Foundry FilePicker */
   if (t.id === 'btn-upload-photo') {
     const fp = new FilePicker({
       type: "image",
@@ -127,12 +125,6 @@ document.addEventListener('click', (ev) => {
       }
     });
     fp.render(true);
-  }
-
-  /* Roll handler here just invokes sheet's click handlers — actual roll should be in actor-sheet class */
-  if (t.classList && t.classList.contains('roll')) {
-    // trigger a click on the sheet instance (the sheet class handles roll)
-    // no-op here: sheet class already registered roll handlers on .roll elements
   }
 });
 </script>
