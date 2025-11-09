@@ -1,4 +1,4 @@
-// module/actor-sheet.js - Dispatch RPG: actor sheet logic (autosave on close, computed fields, robust rolls)
+// module/actor-sheet.js - Dispatch RPG: actor sheet logic (autosave on close, explicit Save button, fixed duplicate)
 export class DispatchActorSheet extends ActorSheet {
   static get defaultOptions() {
     return mergeObject(super.defaultOptions, {
@@ -12,12 +12,11 @@ export class DispatchActorSheet extends ActorSheet {
   }
 
   /** 
-   * Antes de fechar, salva explicitamente os dados do formulário.
+   * Antes de fechar, tenta salvar explicitamente os dados do formulário.
    */
   async close(options = {}) {
     try {
       await this.saveSheetData();
-      // pequeno delay para garantir que o update foi iniciado
       await new Promise(r => setTimeout(r, 70));
     } catch (err) {
       console.warn("DispatchRPG | Erro ao salvar ficha antes de fechar:", err);
@@ -67,7 +66,6 @@ export class DispatchActorSheet extends ActorSheet {
     data.computed = data.computed || {};
     data.computed.iniciativaBonus = des;
     data.computed.taxaCuraBonus = vig;
-    // Movement formula: base 6 + DES
     data.computed.movimento = 6 + des;
 
     // helpers for template iteration
@@ -89,6 +87,13 @@ export class DispatchActorSheet extends ActorSheet {
     root.on("click", ".roll-iniciativa", (ev) => this._onRollIniciativa(ev));
     root.on("click", ".roll-taxa", (ev) => this._onRollTaxaCura(ev));
 
+    // Explicit Save button
+    root.on("click", ".btn-save-sheet", async (ev) => {
+      ev.preventDefault();
+      await this.saveSheetData();
+      ui.notifications.info("Ficha salva.");
+    });
+
     // Double click increment/decrement for skill inputs
     root.on("dblclick", ".skill-input", async (ev) => {
       const input = ev.currentTarget;
@@ -100,7 +105,9 @@ export class DispatchActorSheet extends ActorSheet {
       const delta = ev.shiftKey ? -1 : 1;
       const newVal = Math.max(0, current + delta);
 
-      const newPericias = duplicate(this.actor?.system?.pericias || this.actor?.data?.data?.pericias || this.actor?.data?.pericias || {});
+      // Use foundry.utils.duplicate (not global duplicate)
+      const base = this.actor?.system?.pericias || this.actor?.data?.data?.pericias || this.actor?.data?.pericias || {};
+      const newPericias = foundry.utils.duplicate(base);
       newPericias[skillName] = newVal;
       await this.actor.update({ "data": { "pericias": newPericias } });
       $(input).val(newVal);
@@ -125,7 +132,6 @@ export class DispatchActorSheet extends ActorSheet {
         if (actor) return actor;
       }
     } catch (err) { /* ignore */ }
-    // fallback: any rendered actor sheet
     const found = game.actors?.contents?.find?.(a => a.sheet?._state?.rendered);
     if (found) return found;
     return null;
@@ -271,15 +277,15 @@ export class DispatchActorSheet extends ActorSheet {
       flat[k] = v;
     }
 
-    // expandObject helper (Foundry fornece expandObject ou foundry.utils.expandObject)
+    // expandObject helper
     const expandFn = (typeof expandObject === "function") ? expandObject : (foundry?.utils?.expandObject);
     if (!expandFn) {
       console.error("DispatchRPG | expandObject não disponível no ambiente Foundry.");
       return;
     }
-    const expanded = expandFn(flat); // exemplo: { data: { atributos: { FOR: "3" }, pericias: { "Primeiros Socorros": "2" } }, name: "..." }
+    const expanded = expandFn(flat);
 
-    // Converter numerics em strings para numbers (recursivo)
+    // Convert numeric strings to numbers recursively
     function convertNumbers(obj) {
       if (obj === null || obj === undefined) return obj;
       if (typeof obj === "string") {
@@ -297,7 +303,7 @@ export class DispatchActorSheet extends ActorSheet {
     }
     const converted = convertNumbers(expanded);
 
-    // Construir payload: incluir data (se existir) e quaisquer outros campos de topo (ex.: name)
+    // Build payload
     const payload = {};
     if (converted.data) payload.data = converted.data;
     for (const k of Object.keys(converted)) {
@@ -305,10 +311,7 @@ export class DispatchActorSheet extends ActorSheet {
       payload[k] = converted[k];
     }
 
-    // Se payload estiver vazio, não chamar update
     if (Object.keys(payload).length === 0) return;
-
-    // Executar update
     await actor.update(payload);
   }
 }
