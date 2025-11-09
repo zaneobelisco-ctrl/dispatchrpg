@@ -2,7 +2,8 @@
   <header class="sheet-header">
     <div class="left">
       <div class="portrait">
-        <img src="{{actor.img || 'icons/svg/mystery-man.svg'}}" alt="avatar" id="pc-portrait"/>
+        <!-- Handlebars-safe image selection -->
+        <img src="{{#if actor.img}}{{actor.img}}{{else}}icons/svg/mystery-man.svg{{/if}}" alt="avatar" id="pc-portrait"/>
         <div class="portrait-controls">
           <button type="button" class="btn" id="btn-upload-photo">Upload Foto</button>
         </div>
@@ -23,15 +24,15 @@
     <div class="right">
       <div class="status-block">
         <label>PV</label>
-        <input name="data.pv" value="{{data.pv || 0}}" />
+        <input name="data.pv" value="{{data.pv}}" />
       </div>
       <div class="status-block">
         <label>PP</label>
-        <input name="data.pp" value="{{data.pp || 0}}" />
+        <input name="data.pp" value="{{data.pp}}" />
       </div>
       <div class="status-block">
         <label>SAN</label>
-        <input name="data.san" value="{{data.san || 0}}" />
+        <input name="data.san" value="{{data.san}}" />
       </div>
     </div>
   </header>
@@ -46,102 +47,80 @@
 
   <section class="tabcontent" data-tabcontent="atributos">
     <div class="attributes-grid">
+      {{#each data.atributos}}
       <div class="attr">
-        <label>Força</label>
-        <input type="number" name="data.atributos.FOR" value="{{data.atributos.FOR || 0}}" />
-      </div>
-      <div class="attr">
-        <label>Vigor</label>
-        <input type="number" name="data.atributos.VIG" value="{{data.atributos.VIG || 0}}" />
-      </div>
-      <div class="attr">
-        <label>Destreza</label>
-        <input type="number" name="data.atributos.DES" value="{{data.atributos.DES || 0}}" />
-      </div>
-      <div class="attr">
-        <label>Intelecto</label>
-        <input type="number" name="data.atributos.INT" value="{{data.atributos.INT || 0}}" />
-      </div>
-      <div class="attr">
-        <label>Poder</label>
-        <input type="number" name="data.atributos.POD" value="{{data.atributos.POD || 0}}" />
-      </div>
-      <div class="attr">
-        <label>Carisma</label>
-        <input type="number" name="data.atributos.CAR" value="{{data.atributos.CAR || 0}}" />
-      </div>
-    </div>
-  </section>
-
-  <section class="tabcontent" data-tabcontent="pericias" style="display:none">
-    <div class="pericias-grid">
-      <!-- Lista completa de perícias (adicione/remova conforme necessário) -->
-      {{#each (Object.entries({
-        "Atletismo":"FOR","Condução":"DES","Desarmado":"FOR","Dissimulação":"CAR","Evasão":"DES",
-        "Vontade":"POD","Furtividade":"DES","Influência":"CAR","Intuição":"INT","Língua Nativa":"INT",
-        "Malandragem":"POD","Musculatura":"FOR","Ocultação":"INT","Pesquisa":"INT","Percepção":"INT"
-      })) as |pair|}}
-      <div class="skill-row">
-        <label>{{pair.[0]}}</label>
-        <input type="number" name="data.pericias.{{pair.[0]}}" value="{{data.pericias.[pair.[0]] || 0}}" />
-        <button type="button" class="roll btn-small" data-skill="{{pair.[0]}}">🎲</button>
+        <label>{{@key}}</label>
+        <input type="number" name="data.atributos.{{@key}}" value="{{this}}" />
       </div>
       {{/each}}
     </div>
   </section>
 
+  <section class="tabcontent" data-tabcontent="pericias" style="display:none">
+    <div class="pericias-grid">
+      {{#if data.pericias}}
+        {{#each data.pericias}}
+        <div class="skill-row">
+          <label>{{@key}}</label>
+          <input type="number" name="data.pericias.{{@key}}" value="{{this}}" />
+          <button type="button" class="roll btn-small" data-skill="{{@key}}">🎲</button>
+        </div>
+        {{/each}}
+      {{else}}
+        <div>Nenhuma perícia definida.</div>
+      {{/if}}
+    </div>
+  </section>
+
   <section class="tabcontent" data-tabcontent="status" style="display:none">
     <div class="status-grid">
-      <div class="status-item"><label>Iniciativa</label><input name="data.iniciativa" value="{{data.iniciativa || 0}}" /></div>
-      <div class="status-item"><label>Movimento (m/turno)</label><input name="data.movimento" value="{{data.movimento || 0}}" /></div>
-      <div class="status-item"><label>Taxa de Cura</label><input name="data.taxaCura" value="{{data.taxaCura || 0}}" /></div>
+      <div class="status-item"><label>Iniciativa</label><input name="data.iniciativa" value="{{data.iniciativa}}" /></div>
+      <div class="status-item"><label>Movimento (m/turno)</label><input name="data.movimento" value="{{data.movimento}}" /></div>
+      <div class="status-item"><label>Taxa de Cura</label><input name="data.taxaCura" value="{{data.taxaCura}}" /></div>
     </div>
   </section>
 
   <section class="tabcontent" data-tabcontent="poderes" style="display:none">
     <div class="powers-list">
       <label>Poderes e Técnicas</label>
-      <textarea name="data.poderes" placeholder="Descreva aqui suas técnicas, custos em PP e efeitos...">{{data.poderes}}</textarea>
+      <textarea name="data.poderes" placeholder="Descreva suas técnicas...">{{data.poderes}}</textarea>
     </div>
   </section>
 
   <section class="tabcontent" data-tabcontent="biografia" style="display:none">
     <label>Biografia</label>
-    <textarea name="data.biografia" placeholder="História, notas e background...">{{data.biografia}}</textarea>
+    <textarea name="data.biografia" placeholder="História, background...">{{data.biografia}}</textarea>
   </section>
 
   <footer class="sheet-footer">
-    <div class="footer-left">Dispatch RPG — Duke Collins sheet style</div>
+    <div class="footer-left">Dispatch RPG — Ficha</div>
   </footer>
 </form>
 
 <script>
-/* UI handlers (design only, leve interatividade):
-   Tab switching and Asset Browser upload for portrait */
+/* Tab switching (runs in sheet context) */
 document.addEventListener('click', (ev) => {
   const t = ev.target;
-  // tabs
   if (t.classList && t.classList.contains('tab')) {
     const app = t.closest('.app') || document;
     app.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
     t.classList.add('active');
     const name = t.dataset.tab;
     app.querySelectorAll('.tabcontent').forEach(x=>x.style.display='none');
-    app.querySelector(`[data-tabcontent="${name}"]`).style.display='block';
+    const target = app.querySelector(`[data-tabcontent="${name}"]`);
+    if (target) target.style.display='block';
   }
 
-  // upload portrait using Foundry FilePicker (opens Asset Browser)
+  /* Upload portrait using Foundry FilePicker */
   if (t.id === 'btn-upload-photo') {
     const fp = new FilePicker({
       type: "image",
-      current: game.settings.get("core", "lastFolder") || "icons",
-      callback: (file) => {
-        // update actor img path
+      callback: (path) => {
         const app = t.closest(".app");
         const actorId = app?.dataset?.actorId || app?.getAttribute('data-actor-id');
         if (actorId) {
           const actor = game.actors.get(actorId);
-          actor.update({img: file});
+          actor.update({img: path});
         } else {
           ui.notifications.warn("Salve a ficha primeiro para definir a foto.");
         }
@@ -150,6 +129,10 @@ document.addEventListener('click', (ev) => {
     fp.render(true);
   }
 
-  // roll buttons are visual-only here (the real roll handler is in scripts/main.js)
+  /* Roll handler here just invokes sheet's click handlers — actual roll should be in actor-sheet class */
+  if (t.classList && t.classList.contains('roll')) {
+    // trigger a click on the sheet instance (the sheet class handles roll)
+    // no-op here: sheet class already registered roll handlers on .roll elements
+  }
 });
 </script>
