@@ -80,4 +80,8 @@
   .attributes-grid { grid-template-columns:repeat(2,1fr); }
   .right { width:100%; flex-direction:row; justify-content:space-around; order:2; }
   .meta-row { overflow:auto; }
+
+  .sheet-footer { display:flex; justify-content:space-between; align-items:center; margin-top:12px; }
+.footer-right .btn-save-sheet { margin-left:12px; background:#2b6cb0; color:#fff; border-radius:6px; padding:6px 10px; border:none; cursor:pointer; }
+
 }
