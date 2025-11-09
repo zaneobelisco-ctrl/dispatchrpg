@@ -4,8 +4,8 @@ export class DispatchActorSheet extends ActorSheet {
     return mergeObject(super.defaultOptions, {
       classes: ["dispatch", "sheet", "actor"],
       template: "systems/dispatchrpg/templates/actor-sheet.html",
-      width: 860,
-      height: 740,
+      width: 920,
+      height: 760,
       resizable: true
     });
   }
@@ -15,7 +15,7 @@ export class DispatchActorSheet extends ActorSheet {
     // Garantir atributos com padrão 0
     data.data.atributos = data.data.atributos || { FOR: 0, VIG: 0, DES: 0, INT: 0, POD: 0, CAR: 0 };
 
-    // Lista padrão de perícias (com Primeiros Socorros incluída)
+    // Lista padrão de perícias (com Primeiros Socorros incluida)
     const defaultPericias = {
       "Atletismo": 0,
       "Condução": 0,
@@ -46,14 +46,21 @@ export class DispatchActorSheet extends ActorSheet {
     data.data.pp = data.data.pp ?? 0;
     data.data.san = data.data.san ?? 0;
 
+    // derived small helpers for template (not necessary but handy)
+    data._attrKeys = Object.keys(data.data.atributos);
+    data._periciasKeys = Object.keys(data.data.pericias);
+
     return data;
   }
 
   activateListeners(html) {
     super.activateListeners(html);
 
-    // Rolar perícia (botão 🎲)
-    html.find(".roll").click(this._onRollPericia.bind(this));
+    // Use delegated listeners (mais robusto)
+    html.on("click", ".btn-upload-photo", this._onUploadPhoto.bind(this));
+    html.on("click", ".roll", this._onRollPericia.bind(this));
+    html.on("click", ".roll-iniciativa", this._onRollIniciativa.bind(this));
+    html.on("click", ".roll-taxa", this._onRollTaxaCura.bind(this));
 
     // Duplo clique em input de perícia para incrementar; Shift + duplo clique para decrementar
     html.find(".skill-input").on("dblclick", async (ev) => {
@@ -72,6 +79,22 @@ export class DispatchActorSheet extends ActorSheet {
       $(input).val(newVal);
       ui.notifications.info(`${skillName}: ${newVal}`);
     });
+
+    // Espaçamento: nada extra aqui — o HTML/CSS cuida do layout
+  }
+
+  // Open FilePicker to set actor image
+  _onUploadPhoto(event) {
+    event.preventDefault();
+    const button = event.currentTarget;
+    const fp = new FilePicker({
+      type: "image",
+      callback: (path) => {
+        // update actor.img
+        this.actor.update({ img: path });
+      }
+    });
+    fp.render(true);
   }
 
   // Handler de rolagem: 1d20 + atributo + perícia
@@ -110,5 +133,25 @@ export class DispatchActorSheet extends ActorSheet {
     const roll = await new Roll(formula).roll({ async: true });
     const flavor = `${this.actor.name} — ${skill} (1d20 + ${attrVal} + ${periciaVal})`;
     roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor });
+  }
+
+  // Roll iniciativa (usa DES por padrão)
+  async _onRollIniciativa(event) {
+    event.preventDefault();
+    const actorData = this.actor.data.data;
+    const des = Number(actorData.atributos?.DES) || 0;
+    const formula = `1d20 + ${des}`;
+    const roll = await new Roll(formula).roll({ async: true });
+    roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor: `${this.actor.name} — Iniciativa` });
+  }
+
+  // Roll taxa de cura (exemplo: 1d6 + VIG)
+  async _onRollTaxaCura(event) {
+    event.preventDefault();
+    const actorData = this.actor.data.data;
+    const vig = Number(actorData.atributos?.VIG) || 0;
+    const formula = `1d6 + ${vig}`;
+    const roll = await new Roll(formula).roll({ async: true });
+    roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor: `${this.actor.name} — Taxa de Cura (1d6 + VIG)` });
   }
 }
