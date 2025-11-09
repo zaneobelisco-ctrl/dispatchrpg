@@ -11,17 +11,17 @@ export class DispatchActorSheet extends ActorSheet {
     });
   }
 
-  // Force submit on close to ensure saves
+  /** 
+   * Antes de fechar, salva explicitamente os dados do formulário (evita perda ao fechar sem submit).
+   */
   async close(options = {}) {
     try {
-      const form = this.element?.find?.("form");
-      if (form && form.length) {
-        form.submit();
-        // small delay to let submit start
-        await new Promise(r => setTimeout(r, 60));
-      }
+      await this.saveSheetData();
+      // pequeno delay para garantir que o update foi iniciado
+      await new Promise(r => setTimeout(r, 60));
     } catch (err) {
-      console.warn("DispatchRPG | Error submitting sheet on close:", err);
+      console.warn("DispatchRPG | Erro ao salvar ficha antes de fechar:", err);
+      ui.notifications.error("Não foi possível salvar automaticamente a ficha. Verifique o console.");
     }
     return super.close(options);
   }
@@ -67,10 +67,10 @@ export class DispatchActorSheet extends ActorSheet {
     data.computed = data.computed || {};
     data.computed.iniciativaBonus = des;
     data.computed.taxaCuraBonus = vig;
-    // Movement formula: base 6 + DES (meters per turn) — você pode alterar a base se quiser
+    // Movement formula: base 6 + DES
     data.computed.movimento = 6 + des;
 
-    // helpers for template iter keys
+    // helpers for template iteration
     data._attrKeys = Object.keys(data.data.atributos);
     data._periciasKeys = Object.keys(data.data.pericias);
 
@@ -84,7 +84,7 @@ export class DispatchActorSheet extends ActorSheet {
     // Upload photo
     root.on("click", ".btn-upload-photo", (ev) => this._onUploadPhoto(ev));
 
-    // Rolls - delegated and robust
+    // Rolls - delegated handlers bound to this.element (robusto)
     root.on("click", ".roll", (ev) => this._onRollPericia(ev));
     root.on("click", ".roll-iniciativa", (ev) => this._onRollIniciativa(ev));
     root.on("click", ".roll-taxa", (ev) => this._onRollTaxaCura(ev));
@@ -107,14 +107,15 @@ export class DispatchActorSheet extends ActorSheet {
       ui.notifications.info(`${skillName}: ${newVal}`);
     });
 
-    // Persist small edits on blur (submit form)
+    // Auto-save small edits on blur (keeps experience snappy)
     root.on("blur", "input, textarea", (ev) => {
+      // submit form as fallback; saveSheetData will be executed on close anyway
       const form = this.element.find("form");
       if (form.length) form.submit();
     });
   }
 
-  // robust actor lookup
+  // helper: robust actor lookup
   _getActorFromContext() {
     if (this.actor) return this.actor;
     try {
@@ -131,7 +132,7 @@ export class DispatchActorSheet extends ActorSheet {
     return null;
   }
 
-  // read current value from sheet input if present, otherwise from actor data
+  // Helper: get current value from sheet input if present, otherwise from actor data
   _getFieldValueFromSheetOrActor(fieldName) {
     try {
       const selector = `[name="${fieldName}"]`;
@@ -140,7 +141,9 @@ export class DispatchActorSheet extends ActorSheet {
         const v = el.val();
         if (v !== undefined && v !== null && v !== "") return Number(v);
       }
-    } catch (err) { /* ignore */ }
+    } catch (err) {
+      // ignore selector errors
+    }
 
     const actor = this._getActorFromContext();
     if (!actor) return 0;
@@ -216,7 +219,7 @@ export class DispatchActorSheet extends ActorSheet {
     }
   }
 
-  // iniciativa = 1d20 + DES
+  // Iniciativa = 1d20 + DES
   async _onRollIniciativa(event) {
     event.preventDefault();
     const des = this._getFieldValueFromSheetOrActor("data.atributos.DES");
@@ -231,7 +234,7 @@ export class DispatchActorSheet extends ActorSheet {
     }
   }
 
-  // taxa de cura = 1d6 + VIG
+  // Taxa de cura = 1d6 + VIG
   async _onRollTaxaCura(event) {
     event.preventDefault();
     const vig = this._getFieldValueFromSheetOrActor("data.atributos.VIG");
@@ -244,5 +247,62 @@ export class DispatchActorSheet extends ActorSheet {
       console.error(err);
       ui.notifications.error("Erro ao rolar taxa de cura.");
     }
+  }
+
+  /**
+   * Lê o formulário renderizado, expande nomes como "data.atributos.FOR" em objeto aninhado,
+   * converte strings numéricas em números e executa this.actor.update(...) com o payload.
+   * Garante salvar campos com espaços (ex.: "data.pericias.Primeiros Socorros").
+   */
+  async saveSheetData() {
+    // Ensure actor exist
+    const actor = this._getActorFromContext() || this.actor;
+    if (!actor) return ui.notifications.warn("Não foi possível salvar: personagem não encontrado.");
+
+    const formEl = this.element.find("form")[0];
+    if (!formEl) return;
+
+    // Read FormData
+    const fd = new FormData(formEl);
+    const entries = Array.from(fd.entries()); // [ [name, value], ... ]
+
+    // Build flat object
+    const flat = {};
+    for (const [k, v] of entries) {
+      flat[k] = v;
+    }
+
+    // expandObject helper (Foundry provides expandObject or in foundry.utils)
+    const expandFn = (typeof expandObject === "function") ? expandObject : (foundry?.utils?.expandObject);
+    if (!expandFn) {
+      console.error("DispatchRPG | expandObject não disponível no ambiente Foundry.");
+      return;
+    }
+    const expanded = expandFn(flat); // { data: { atributos: { FOR: "3" }, pericias: { "Primeiros Socorros": "2" } } }
+
+    // Convert numeric strings to numbers recursively
+    function convertNumbers(obj) {
+      if (obj === null || obj === undefined) return obj;
+      if (typeof obj === "string") {
+        if (/^-?\d+$/.test(obj)) return parseInt(obj, 10);
+        if (/^-?\d+\.\d+$/.test(obj)) return parseFloat(obj);
+        return obj;
+      }
+      if (Array.isArray(obj)) return obj.map(convertNumbers);
+      if (typeof obj === "object") {
+        const out = {};
+        for (const k of Object.keys(obj)) out[k] = convertNumbers(obj[k]);
+        return out;
+      }
+      return obj;
+    }
+    const converted = convertNumbers(expanded);
+
+    // Prepare payload for actor.update: pass { data: {...} }
+    const payload = converted.data ? { data: converted.data } : converted;
+
+    // Execute update
+    await actor.update(payload);
+    // Optionally: ui.notifications.info("Ficha salva.");
   }
 }
