@@ -1,1 +1,58 @@
-/* Updated CSS with white text fields - shortened for brevity */
+/* Duke Collins style — claro + branco */
+.dispatch-sheet.duke-collins {
+  background: linear-gradient(180deg, #f6f9ff 0%, #e9f0ff 100%);
+  color: #ffffff;
+  border-radius: 10px;
+  padding: 14px;
+  font-family: "Segoe UI", "Roboto", sans-serif;
+  box-shadow: 0 6px 20px rgba(30,60,100,0.18);
+  color: #08233a;
+}
+
+/* header */
+.sheet-header { display:flex; gap:16px; align-items:flex-start; margin-bottom:10px; }
+.left .portrait { position:relative; }
+.left .portrait img { width:120px; height:120px; object-fit:cover; border-radius:8px; border:2px solid #dfeaff; background:#fff; }
+.portrait-controls { margin-top:8px; display:flex; gap:6px; }
+.btn { background:#1f6fff; color:#fff; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; }
+.btn-small { background:#2a7cff; color:#fff; border:none; padding:4px 8px; border-radius:6px; cursor:pointer; font-size:0.9rem; }
+
+.center { flex:1; }
+.char-name { width:100%; font-size:1.4rem; padding:8px; border-radius:6px; border:1px solid #d6e8ff; background:#fff; color:#08233a; font-weight:700; }
+
+.meta-row { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+.meta { padding:6px 8px; border-radius:6px; border:1px solid #d6e8ff; background:#fff; color:#08233a; }
+.meta.small { width:180px; }
+.meta.tiny { width:90px; }
+
+/* right status */
+.right { width:140px; display:flex; flex-direction:column; gap:8px; align-items:center; }
+.status-block { width:100%; text-align:center; background:#ffffff; padding:8px; border-radius:6px; border:1px solid #d6e8ff; }
+.status-block label { display:block; font-size:0.75rem; color:#3b5f7b; margin-bottom:6px; }
+.status-block input { width:100%; text-align:center; font-weight:700; border:none; background:transparent; color:#08233a; }
+
+/* tabs */
+.tabs { display:flex; gap:8px; margin:12px 0; }
+.tab { padding:8px 12px; background:#ffffff; border-radius:8px; border:1px solid #d6e8ff; cursor:pointer; color:#08233a; }
+.tab.active { background:#e6f0ff; box-shadow:0 3px 8px rgba(30,60,100,0.06); }
+
+/* content areas */
+.tabcontent { padding:10px 0; }
+.attributes-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.attr { background:#ffffff; padding:10px; border-radius:8px; border:1px solid #d6e8ff; text-align:center; }
+.attr label { font-size:0.8rem; color:#254b66; display:block; margin-bottom:6px; }
+.attr input { width:100%; padding:6px; font-weight:700; border:none; color:#08233a; background:transparent; text-align:center; }
+
+.pericias-grid { display:flex; flex-direction:column; gap:8px; }
+.skill-row { display:flex; gap:8px; align-items:center; background:#fff; padding:8px; border-radius:8px; border:1px solid #d6e8ff; }
+.skill-row label { width:220px; color:#254b66; font-weight:600; }
+.skill-row input { width:70px; padding:6px; border-radius:6px; border:1px solid #d6e8ff; background:#fff; color:#08233a; text-align:center; }
+.roll { padding:6px 10px; border-radius:6px; background:#1f6fff; color:white; border:none; cursor:pointer; }
+
+.status-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:8px; }
+.status-item { background:#fff; padding:10px; border-radius:8px; border:1px solid #d6e8ff; text-align:center; }
+.status-item label { display:block; color:#254b66; margin-bottom:6px; }
+
+.powers-list textarea, [name="data.biografia"] { width:100%; min-height:120px; padding:10px; border-radius:8px; border:1px solid #d6e8ff; background:#fff; color:#08233a; }
+
+.sheet-footer { margin-top:10px; color:#2f6a99; font-size:0.9rem; text-align:right; }
