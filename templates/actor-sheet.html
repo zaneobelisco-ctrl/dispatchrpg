@@ -79,18 +79,18 @@
       <div class="status-item">
         <label>Iniciativa</label>
         <div class="inline-row">
-          <input name="data.iniciativa" value="{{data.iniciativa}}" />
+          <div class="computed-value">+{{computed.iniciativaBonus}}</div>
           <button type="button" class="roll-iniciativa btn-small">🎲</button>
         </div>
       </div>
       <div class="status-item">
         <label>Movimento (m/turno)</label>
-        <input name="data.movimento" value="{{data.movimento}}" />
+        <div class="computed-value">{{computed.movimento}} m</div>
       </div>
       <div class="status-item">
         <label>Taxa de Cura</label>
         <div class="inline-row">
-          <input name="data.taxaCura" value="{{data.taxaCura}}" />
+          <div class="computed-value">1d6 + {{computed.taxaCuraBonus}}</div>
           <button type="button" class="roll-taxa btn-small">🎲</button>
         </div>
       </div>
