@@ -204,7 +204,7 @@ export class DispatchActorSheet extends ActorSheet {
     }
   }
 
-  // Final, robust save that logs payload and has fallback manual collection
+  // Final, robust save that maps data -> system for Foundry v12+/v13
   async saveSheetData() {
     const actor = this._getActorFromContext() || this.actor;
     if (!actor) {
@@ -212,28 +212,28 @@ export class DispatchActorSheet extends ActorSheet {
       return;
     }
 
-    // Permission check
+    // Permissão
     if (!actor.isOwner && !(game.user?.isGM)) {
       ui.notifications.warn("Você não tem permissão para editar este personagem.");
       return;
     }
 
-    // Try FormData + foundry.utils.expandObject first
+    // Coleta via FormData
     const formEl = this.element.find("form")[0];
     let flat = {};
     if (formEl) {
       const fd = new FormData(formEl);
       const entries = Array.from(fd.entries());
-      for (const [k,v] of entries) {
+      for (const [k, v] of entries) {
         if (typeof v === "string" && v.trim() === "") continue;
         flat[k] = v;
       }
     }
 
-    // Fallback manual collection: find all inputs with name attributes
+    // Fallback manual caso FormData vazio
     if (!Object.keys(flat).length) {
       const inputs = this.element.find('input[name], textarea[name], select[name]');
-      inputs.each((i,el) => {
+      inputs.each((i, el) => {
         const name = el.getAttribute('name');
         if (!name) return;
         const val = el.value;
@@ -242,32 +242,26 @@ export class DispatchActorSheet extends ActorSheet {
       });
     }
 
-    // If still empty, nothing to save
     if (!Object.keys(flat).length) {
       console.debug("DispatchRPG | saveSheetData: nenhum campo a salvar.");
       return;
     }
 
-    // Try to expand using foundry.utils.expandObject
+    // expandObject using foundry.utils
     let expanded = {};
     try {
       if (foundry?.utils?.expandObject) expanded = foundry.utils.expandObject(flat);
-      else expanded = expandObject(flat); // fallback (if available)
+      else expanded = expandObject(flat);
     } catch (err) {
-      console.warn("DispatchRPG | expandObject falhou, usando expansão manual.", err);
-      // manual expansion of dotted keys into nested object
+      // fallback manual expansion
       expanded = {};
       for (const key of Object.keys(flat)) {
         const parts = key.split('.');
         let cur = expanded;
-        for (let i=0;i<parts.length;i++) {
+        for (let i = 0; i < parts.length; i++) {
           const p = parts[i];
-          if (i === parts.length - 1) {
-            cur[p] = flat[key];
-          } else {
-            cur[p] = cur[p] || {};
-            cur = cur[p];
-          }
+          if (i === parts.length - 1) cur[p] = flat[key];
+          else { cur[p] = cur[p] || {}; cur = cur[p]; }
         }
       }
     }
@@ -290,21 +284,25 @@ export class DispatchActorSheet extends ActorSheet {
     }
     const converted = convertNumbers(expanded);
 
-    // Build payload: include data and top-level fields like name
+    // === CRUCIAL: Map `data` -> `system` for Foundry v12+/v13 ===
+    // If the expanded object produced a top-level "data" (from inputs named data.*),
+    // we need to send that under the "system" key to update actor.system.
     const payload = {};
-    if (converted.data) payload.data = converted.data;
+    if (converted.data) {
+      payload.system = converted.data;
+    }
+    // Preserve other top-level fields (e.g., name) as-is
     for (const k of Object.keys(converted)) {
       if (k === "data") continue;
       payload[k] = converted[k];
     }
-
-    console.debug("DispatchRPG | saveSheetData payload:", payload);
 
     if (!Object.keys(payload).length) {
       console.debug("DispatchRPG | payload vazio, nada a atualizar.");
       return;
     }
 
+    console.debug("DispatchRPG | saveSheetData payload (mapped):", payload);
     try {
       await actor.update(payload);
       console.debug("DispatchRPG | actor.update bem sucedido.");
@@ -314,4 +312,5 @@ export class DispatchActorSheet extends ActorSheet {
       throw err;
     }
   }
-}
+
+
